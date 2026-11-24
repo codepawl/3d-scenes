@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:,">
+  <title>Greedy Mesher City</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    canvas { display: block; }
+    #hud { position: fixed; left: 12px; bottom: 12px; color: #e8dcc8; font: 12px/1.5 system-ui, sans-serif;
+      background: rgba(0,0,0,0.35); padding: 8px 10px; border-radius: 6px; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="hud" style="display:none">
+    <div id="fps">-- fps</div>
+    drag: orbit &middot; wheel: zoom &middot; C: cinematic camera &middot; R: restart dusk &middot; Space: pause dusk &middot; H: hide
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Steam spider</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/vendor/three/build/three.module.js",
+          "three/addons/": "/vendor/three/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <canvas id="scene" aria-label="A steam-powered mechanical spider walking across an obstacle course"></canvas>
+    <div class="controls" id="controls">
+      <button type="button" class="toggle" id="terrain-toggle" aria-pressed="true">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path d="M2 13.5V10h3.8V6.5h3.9V3H14v10.5z" />
+        </svg>
+        <span>Terrain</span>
+      </button>
+      <button type="button" class="toggle" id="pixel-toggle" aria-pressed="false">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path d="M2.5 2.5h4.5v4.5H2.5zM9 2.5h4.5v4.5H9zM2.5 9h4.5v4.5H2.5zM9 9h4.5v4.5H9z" />
+        </svg>
+        <span>Pixel</span>
+      </button>
+      <p class="hint">
+        <span class="hint-pointer">Point at the floor to lead it. Arrows steer, Space vents steam.</span>
+        <span class="hint-touch">Tap or drag on the floor to lead it.</span>
+      </p>
+    </div>
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>

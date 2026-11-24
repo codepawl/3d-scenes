@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ink in Water</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #hud { position: fixed; left: 10px; bottom: 8px; color: #ccc; font: 12px/1.4 system-ui, sans-serif;
+         opacity: .7; pointer-events: none; text-shadow: 0 1px 2px #000; }
+</style>
+</head>
+<body>
+<div id="hud">click / drag: drop ink &middot; space: pause &middot; R: reset &middot; C: next ink colour</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

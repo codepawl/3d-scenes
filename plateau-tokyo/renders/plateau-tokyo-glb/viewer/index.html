@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PLATEAU Tokyo GLB viewer</title>
+<style>
+  :root { --bg:#eef0f2; --panel:rgba(255,255,255,.92); --ink:#1d2329; --mute:#5f6b76; --line:#d5dbe0; --accent:#1f6feb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14181c; --panel:rgba(28,33,38,.92); --ink:#e6eaee; --mute:#9aa6b1; --line:#323a42; --accent:#58a6ff; } }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font:13px/1.4 system-ui, sans-serif; overflow:hidden; }
+  canvas { display:block; }
+  #ui { position:fixed; top:12px; left:12px; width:250px; max-width:calc(100vw - 24px); background:var(--panel); border:1px solid var(--line);
+        border-radius:10px; padding:12px 14px; box-sizing:border-box; }
+  #ui h1 { font-size:14px; margin:0 0 6px; }
+  #ui label { display:flex; gap:8px; align-items:center; margin:3px 0; cursor:pointer; }
+  #ui select { width:100%; margin:6px 0; padding:4px; background:transparent; color:var(--ink); border:1px solid var(--line); border-radius:6px; }
+  #stat { color:var(--mute); margin-top:8px; font-variant-numeric:tabular-nums; }
+  #credit { position:fixed; right:10px; bottom:8px; color:var(--mute); font-size:11px; max-width:calc(100vw - 20px); text-align:right; }
+  #credit a { color:inherit; }
+  body.shot #ui, body.shot #credit { display:none; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <h1>PLATEAU Tokyo 23 wards</h1>
+  <select id="ward"><option value="">All tiles</option></select>
+  <div id="layers"></div>
+  <div id="stat">loading…</div>
+</div>
+<div id="credit">Source: MLIT Project PLATEAU, 3D city model of Tokyo 23 wards (<a href="https://www.geospatial.jp/ckan/dataset/plateau-tokyo23ku">G空間情報センター</a>), PDL1.0. Processed by the pack author.</div>
+<script type="importmap">
+{ "imports": { "three": "./lib/three/three.module.js", "three/addons/": "./lib/three/addons/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { MapControls } from 'three/addons/controls/MapControls.js';
+
+const q = new URLSearchParams(location.search);
+const base = q.get('base') || '..';
+const shot = q.get('shot');                    // "x,y,z,tx,ty,tz,fov" -> fixed camera, no UI (stills / thumbnails)
+if (shot) document.body.classList.add('shot');
+
+const LAYERS = [
+  { key: 'dem',       label: 'Terrain',             color: 0xb9b4a8 },
+  { key: 'tran',      label: 'Roads',               color: 0x6d7076 },
+  { key: 'brid',      label: 'Bridges',             color: null },
+  { key: 'bldg_lod1', label: 'Buildings (LOD1)',    color: 0xe9e7e1 },
+  { key: 'bldg_lod2', label: 'Buildings (LOD2, textured)', color: null },
+];
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: !!shot });
+renderer.setPixelRatio(shot ? 1 : Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const sky = new THREE.Color(q.get('bg') || '#dfe5ea');
+scene.background = sky; scene.fog = new THREE.Fog(sky, 14000, 45000);
+scene.add(new THREE.HemisphereLight(0xf4f7fb, 0x8a8478, 1.5));
+const sun = new THREE.DirectionalLight(0xfff3e2, 2.4);
+sun.position.set(-1800, 2600, 1400); sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -6000, right: 6000, top: 6000, bottom: -6000, near: 10, far: 12000 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 1.5;
+scene.add(sun, sun.target);
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 5, 40000);
+const controls = new MapControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.47;
+
+const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+const groups = Object.fromEntries(LAYERS.map(l => [l.key, new THREE.Group()]));
+Object.values(groups).forEach(g => scene.add(g));
+let tris = 0, loaded = 0, total = 0;
+
+function styleMesh(o, layer) {
+  if (!o.isMesh) return;
+  o.castShadow = layer.key.startsWith('bldg') || layer.key === 'brid';
+  o.receiveShadow = true;
+  if (layer.color !== null) { o.material.color.setHex(layer.color); o.material.map = null; }
+  o.material.roughness = 0.92; o.material.metalness = 0;
+  if (layer.key === 'tran') { o.material.polygonOffset = true; o.material.polygonOffsetFactor = -2; o.material.polygonOffsetUnits = -2; }
+  tris += o.geometry.index ? o.geometry.index.count / 3 : o.geometry.attributes.position.count / 3;
+}
+
+const index = await (await fetch(`${base}/tiles.json`)).json();
+const wardSel = document.getElementById('ward');
+[...new Set(index.tiles.flatMap(t => t.wards))].sort().forEach(w => wardSel.add(new Option(w, w)));
+const pick = q.get('tiles') ? q.get('tiles').split(',') : null;
+const ward = q.get('ward');
+const wantLayers = q.get('layers') ? q.get('layers').split(',') : LAYERS.map(l => l.key);
+const list = index.tiles.filter(t => (!pick || pick.includes(t.mesh)) && (!ward || t.wards.includes(ward)));
+
+const layerBox = document.getElementById('layers');
+for (const l of LAYERS) {
+  const id = 'L_' + l.key, row = document.createElement('label');
+  row.innerHTML = `<input type="checkbox" id="${id}" ${wantLayers.includes(l.key) ? 'checked' : ''}> ${l.label}`;
+  row.querySelector('input').onchange = e => groups[l.key].visible = e.target.checked;
+  layerBox.appendChild(row); groups[l.key].visible = wantLayers.includes(l.key);
+}
+wardSel.value = ward || '';
+wardSel.onchange = () => { const u = new URL(location); wardSel.value ? u.searchParams.set('ward', wardSel.value) : u.searchParams.delete('ward'); location = u; };
+
+// frame the selection
+const bb = new THREE.Box3();
+for (const t of list) bb.union(new THREE.Box3(new THREE.Vector3(...t.bbox[0]), new THREE.Vector3(...t.bbox[1])));
+const c = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3());
+if (shot) {
+  const [x, y, z, tx, ty, tz, fov] = shot.split(',').map(Number);
+  camera.position.set(x, y, z); controls.target.set(tx, ty, tz); if (fov) camera.fov = fov;
+} else {
+  const r = Math.max(sz.x, sz.z);
+  camera.position.set(c.x + r * 0.35, r * 0.55 + 200, c.z + r * 0.75); controls.target.copy(c).setY(40);
+}
+camera.updateProjectionMatrix(); controls.update();
+sun.target.position.copy(controls.target); sun.position.copy(controls.target).add(new THREE.Vector3(-1800, 2600, 1400));
+
+const stat = document.getElementById('stat');
+const jobs = [];
+for (const t of list) for (const l of LAYERS) if (t.files[l.key] && wantLayers.includes(l.key)) jobs.push([t, l]);
+total = jobs.length;
+async function worker() {
+  while (jobs.length) {
+    const [t, l] = jobs.shift();
+    try {
+      const g = await loader.loadAsync(`${base}/${t.files[l.key]}`);
+      g.scene.traverse(o => styleMesh(o, l)); groups[l.key].add(g.scene);
+    } catch (e) { console.warn('failed', t.mesh, l.key, e); }
+    loaded++; stat.textContent = `${loaded}/${total} files · ${(tris / 1e6).toFixed(2)} M triangles`;
+  }
+}
+await Promise.all(Array.from({ length: 6 }, worker));
+stat.textContent = `${list.length} tiles · ${total} files · ${(tris / 1e6).toFixed(2)} M triangles`;
+
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+function frame() { controls.update(); renderer.render(scene, camera); if (!shot) requestAnimationFrame(frame); }
+renderer.compile(scene, camera); frame(); frame();
+window.__ready = true;
+</script>
+</body>
+</html>

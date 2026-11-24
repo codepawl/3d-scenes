@@ -1,0 +1,21 @@
+{
+  "name": "creek",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Cozy creek: a three.js scene with procedural Blender assets",
+  "type": "module",
+  "scripts": {
+    "dev": "http-server -p 5199 -c-1 --silent",
+    "serve": "http-server -p 5199 -c-1 --silent",
+    "assets": "powershell -ExecutionPolicy Bypass -File tools/build-assets.ps1",
+    "shots": "node tools/shoot.mjs",
+    "flythrough": "node tools/flythrough.mjs"
+  },
+  "dependencies": {
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "http-server": "14.1.1",
+    "playwright": "1.63.0"
+  }
+}

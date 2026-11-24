@@ -1,0 +1,11 @@
+{
+  "name": "spider-opus",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs"
+  },
+  "dependencies": {
+    "three": "0.186.0"
+  }
+}

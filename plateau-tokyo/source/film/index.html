@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tokyo layer build</title>
+<style>
+  html, body { margin:0; background:#e9edf0; overflow:hidden; }
+  #stage { position:relative; width:100vw; height:100vh; overflow:hidden; }
+  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .ov { position:absolute; opacity:0; color:#fff; font-family:"Segoe UI","Yu Gothic UI","Meiryo",sans-serif;
+        text-shadow:0 1px 2px rgba(0,0,0,.45), 0 0 18px rgba(0,0,0,.25); white-space:nowrap; }
+  #title { left:6.2vw; top:7.5vh; }
+  #title .big { font-size:7.4vh; font-weight:700; letter-spacing:.06em; line-height:1; }
+  #title .jp { font-size:3.0vh; font-weight:500; letter-spacing:.3em; margin-top:1.2vh; opacity:.95; }
+  #title .sub { font-size:2.15vh; font-weight:500; margin-top:1.6vh; opacity:.95; }
+  #layer { left:4.4vw; top:6.2vh; font-size:2.1vh; font-weight:600; letter-spacing:.32em; }
+  #layer b { display:inline-block; min-width:3.4vh; font-weight:700; color:#ffd27a; }
+  #ward { left:4.4vw; bottom:7.4vh; }
+  #ward .en { font-size:4.4vh; font-weight:700; letter-spacing:.08em; }
+  #ward .jp { font-size:2.4vh; font-weight:500; letter-spacing:.25em; margin-top:.4vh; }
+  #pin { font-size:1.9vh; font-weight:600; transform:translate(-50%,-100%); text-align:center; }
+  #pin .h { font-weight:500; opacity:.92; font-size:1.7vh; }
+  #end { left:0; right:0; bottom:6.5vh; text-align:center; }
+  #end .big { font-size:3.2vh; font-weight:700; letter-spacing:.1em; }
+  #end .c { font-size:1.75vh; font-weight:500; margin-top:1.4vh; line-height:1.55; opacity:.96; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div id="title" class="ov"><div class="big">TOKYO</div><div class="jp">東京 · 3D都市モデル</div><div class="sub">Real city data, built layer by layer</div></div>
+  <div id="layer" class="ov"><b>01</b>TERRAIN</div>
+  <div id="ward" class="ov"><div class="en">SHINJUKU</div><div class="jp">新宿区</div></div>
+  <div id="pin" class="ov"><div class="n"></div><div class="h"></div></div>
+  <div id="end" class="ov"><div class="big">東京 TOKYO</div>
+    <div class="c">Chiyoda · Shinjuku · Shibuya — 71 mesh tiles from MLIT Project PLATEAU (PDL1.0)<br>
+    「3D都市モデル（Project PLATEAU）東京都23区」（国土交通省）を加工して作成 · Music: “Floating Cities” Kevin MacLeod (CC BY 4.0)</div></div>
+</div>
+<script type="importmap">
+{ "imports": { "three": "/tools/node_modules/three/build/three.module.js", "three/addons/": "/tools/node_modules/three/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const q = new URLSearchParams(location.search);
+// height-aware haze: smoothstep over distance, thinner above the ground so towers stay readable and only far edges fade
+THREE.ShaderChunk.fog_pars_vertex = `#ifdef USE_FOG
+ varying float vFogDepth; varying float vFogY;
+#endif`;
+THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
+ vFogDepth = - mvPosition.z; vFogY = (modelMatrix * vec4(transformed, 1.0)).y;
+#endif`;
+THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
+ uniform vec3 fogColor; varying float vFogDepth; varying float vFogY; uniform float fogNear; uniform float fogFar;
+#endif`;
+THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
+ float fogFactor = smoothstep(fogNear, fogFar, vFogDepth) * mix(1.0, 0.5, clamp((vFogY - 30.0) / 320.0, 0.0, 1.0));
+ gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);
+#endif`;
+const W = +(q.get('w') || 1920), H = +(q.get('h') || 1080);
+const SUB = +(q.get('mb') || 1);                  // motion-blur subframes
+const FPS = 30, SHUTTER = 0.5;                    // 180 degree shutter
+const ASSETS = '/renders/film_assets/';
+const LM = await (await fetch('/film_landmarks.json')).json();
+
+// ---------------------------------------------------------------- timeline
+const T = {
+  terr0: 3.0, terrV: 900, terrO: LM.palace,               // terrain forms outward from the Imperial Palace
+  road0: 9.0, roadV: 1100, roadO: LM.tokyo_sta,            // roads spread from Tokyo Station
+  rise0: 14.0, riseV: 850, riseJ: 1.3, riseO: LM.palace,   // buildings rise westward: Marunouchi, then Shinjuku and Shibuya
+  tex0: 25.0, texV: 520, texO: LM.tmg,                     // photo facades sweep out from West Shinjuku
+  brid0: 24.6, END: 48,
+};
+const ease = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const clamp01 = x => Math.min(1, Math.max(0, x));
+const v3 = (a) => new THREE.Vector3(...a);
+const P = (k, y = 0) => new THREE.Vector3(LM[k][0], y, LM[k][1]);
+
+// shots: camera position / target splines (Catmull-Rom through >= 3 points), fov, optional fixed state time
+const SHOTS = [
+  // cover: the finished West Shinjuku skyline
+  { t0: 0.0, t1: 3.0, state: 999, fov: 34, fog: [2200, 8000],
+    pos: [[-2120, 205, -430], [-2190, 214, -470], [-2262, 222, -505], [-2330, 230, -535]],
+    tgt: [[-2790, 150, -1010], [-2805, 150, -1022], [-2818, 150, -1032], [-2830, 150, -1040]] },
+  // terrain forms around the Imperial Palace (moats, Kitanomaru, Hibiya)
+  { t0: 3.0, t1: 9.0, fov: 38, fog: [3200, 11000],
+    pos: [[4700, 1900, 1900], [4300, 1750, 2050], [3850, 1620, 2150], [3400, 1500, 2200]],
+    tgt: [[2750, 0, -560], [2700, 0, -560], [2650, 0, -560], [2600, 0, -560]] },
+  // roads spread through Chiyoda: Kasumigaseki grid, Marunouchi, palace ring
+  { t0: 9.0, t1: 14.6, fov: 40, fog: [2800, 9500],
+    pos: [[1900, 1050, 1500], [2650, 980, 1450], [3400, 920, 1400], [4150, 870, 1350]],
+    tgt: [[2300, 0, -350], [2900, 0, -380], [3450, 0, -400], [3950, 0, -420]] },
+  // Marunouchi rises beside Tokyo Station
+  { t0: 14.6, t1: 20.2, fov: 38, fog: [2400, 8500],
+    pos: [[4720, 170, 430], [4600, 300, 640], [4450, 470, 820], [4280, 650, 950]],
+    tgt: [[3900, 70, -150], [3870, 85, -180], [3840, 95, -210], [3800, 100, -240]] },
+  // West Shinjuku skyline rises, then its facades arrive
+  { t0: 20.2, t1: 31.0, fov: 36, fog: [2400, 8500],
+    pos: [[-1840, 150, -360], [-1990, 190, -410], [-2140, 250, -465], [-2290, 330, -525]],
+    tgt: [[-2770, 110, -990], [-2790, 135, -1020], [-2805, 160, -1045], [-2815, 175, -1060]] },
+  // Shibuya, Scramble Square
+  { t0: 31.0, t1: 37.5, fov: 36, fog: [2400, 8500],
+    pos: [[-1180, 600, 2780], [-1300, 560, 3030], [-1480, 520, 3200], [-1690, 480, 3290]],
+    tgt: [[-1900, 110, 2330], [-1895, 115, 2345], [-1885, 118, 2360], [-1875, 120, 2370]] },
+  // Marunouchi facades, Tokyo Station, then pull back to look west over the Palace to Shinjuku
+  { t0: 37.5, t1: 48.0, fov: 38, fog: [2600, 9000],
+    pos: [[4720, 300, 520], [4840, 440, 720], [4900, 640, 760], [4950, 830, 660], [4980, 960, 560]],
+    tgt: [[3990, 25, -160], [3900, 40, -240], [3400, 30, -380], [2800, 20, -420], [2400, 10, -380]] },
+];
+for (const s of SHOTS) {
+  s.cp = new THREE.CatmullRomCurve3(s.pos.map(v3), false, 'centripetal');
+  s.ct = new THREE.CatmullRomCurve3(s.tgt.map(v3), false, 'centripetal');
+}
+const shotAt = t => SHOTS.find(s => t >= s.t0 && t < s.t1) || SHOTS[SHOTS.length - 1];
+
+// overlays: [id, t0, t1, setup]
+const OVER = [
+  ['title', 0, 2.65, null, true],
+  ['layer', 3.6, 8.7, el => el.innerHTML = '<b>01</b>TERRAIN'],
+  ['layer', 9.6, 14.3, el => el.innerHTML = '<b>02</b>ROADS'],
+  ['layer', 15.2, 24.6, el => el.innerHTML = '<b>03</b>BUILDINGS'],
+  ['layer', 25.2, 30.7, el => el.innerHTML = '<b>04</b>DETAIL'],
+  ['ward', 4.2, 14.3, el => ward(el, 'CHIYODA', '千代田区')],
+  ['ward', 15.4, 19.9, el => ward(el, 'CHIYODA', '千代田区')],
+  ['ward', 21.0, 30.7, el => ward(el, 'SHINJUKU', '新宿区')],
+  ['ward', 31.6, 37.2, el => ward(el, 'SHIBUYA', '渋谷区')],
+  ['ward', 38.2, 42.8, el => ward(el, 'CHIYODA', '千代田区')],
+  ['end', 43.6, 48.5, null],
+];
+function ward(el, en, jp) { el.querySelector('.en').textContent = en; el.querySelector('.jp').textContent = jp; }
+// selection borders: building picked by landmark, outline on during [t0, t1]
+const SEL = [
+  { key: 'tmg', t0: 27.6, t1: 31.0, name: 'Tokyo Metropolitan Government Building', jp: '東京都庁' },
+  { key: 'scramble_sq', t0: 34.0, t1: 37.5, name: 'Shibuya Scramble Square', jp: '渋谷スクランブルスクエア' },
+  { key: 'tokyo_sta', t0: 40.0, t1: 43.2, name: 'Tokyo Station', jp: '東京駅 丸の内駅舎' },
+];
+
+// ---------------------------------------------------------------- renderer
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(1); renderer.setSize(W, H, false);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.autoClear = false;
+const rtOpts = { type: THREE.HalfFloatType, samples: 4 };
+const rtMain = new THREE.WebGLRenderTarget(W, H, rtOpts);
+const rtAcc = new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType });
+const rtMask = new THREE.WebGLRenderTarget(W, H, { samples: 4 });
+
+const scene = new THREE.Scene();
+const HORIZON = new THREE.Color('#e8ecef'), ZENITH = new THREE.Color('#b9cad9');
+scene.fog = new THREE.Fog(HORIZON.clone().convertSRGBToLinear(), 4000, 20000);
+const sky = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { hz: { value: HORIZON.clone().convertSRGBToLinear() }, zn: { value: ZENITH.clone().convertSRGBToLinear() } },
+  vertexShader: 'varying vec3 d; void main(){ d = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.); gl_Position = p.xyww; }',
+  fragmentShader: 'uniform vec3 hz, zn; varying vec3 d; void main(){ float h = clamp(normalize(d).y, 0., 1.); gl_FragColor = vec4(mix(hz, zn, pow(h, .55)), 1.); }',
+}));
+sky.frustumCulled = false; sky.renderOrder = -1; sky.scale.setScalar(30000); scene.add(sky);
+
+scene.add(new THREE.HemisphereLight(0xf2f5fa, 0x9b9282, 1.25));
+const sun = new THREE.DirectionalLight(0xffefd8, 2.7);
+const SUNDIR = new THREE.Vector3(-0.18, 0.6, 0.78).normalize();   // from the south: faces toward the cameras are lit
+sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.bias = -0.0003;
+scene.add(sun, sun.target);
+
+const camera = new THREE.PerspectiveCamera(38, W / H, 5, 60000);
+
+// ---------------------------------------------------------------- materials
+const U = {
+  uT: { value: 0 },
+  uTerr: { value: new THREE.Vector4(T.terrO[0], T.terrO[1], T.terr0, T.terrV) },
+  uRoad: { value: new THREE.Vector4(T.roadO[0], T.roadO[1], T.road0, T.roadV) },
+  uRise: { value: new THREE.Vector4(T.riseO[0], T.riseO[1], T.rise0, T.riseV) },
+  uRiseJ: { value: T.riseJ },
+  uTex: { value: new THREE.Vector4(T.texO[0], T.texO[1], T.tex0, T.texV) },
+  uBrid: { value: T.brid0 },
+};
+const HASH = 'float hsh(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }\n';
+const DITHER = 'float dth(){ return fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))); }\n';
+
+function revealMat(color, key, front) {          // terrain / roads: dithered radial dissolve
+  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0, vertexColors: key === 'uTerr' });
+  m.onBeforeCompile = s => {
+    Object.assign(s.uniforms, U);
+    s.vertexShader = 'varying vec3 vW;\n' + s.vertexShader.replace('#include <worldpos_vertex>',
+      '#include <worldpos_vertex>\n vW = (modelMatrix * vec4(transformed, 1.)).xyz;');
+    s.fragmentShader = `uniform float uT; uniform vec4 ${key}; varying vec3 vW;\n${HASH}${DITHER}` + s.fragmentShader.replace('#include <clipping_planes_fragment>',
+      `#include <clipping_planes_fragment>
+       float R = max(uT - ${key}.z, 0.) * ${key}.w;
+       float d = distance(vW.xz, ${key}.xy) ;
+       float a = clamp((R - d) / ${front.toFixed(1)}, 0., 1.);
+       if (a < dth() || R <= 0.) discard;`);
+  };
+  return m;
+}
+const GROW_HEAD = `attribute vec4 _anchor; uniform float uT, uRiseJ, uBrid; uniform vec4 uRise, uTex; varying float vK, vTx;\n${HASH}`;
+const growBody = startUniform => `#include <begin_vertex>
+        float st = ${startUniform === 'brid' ? 'uBrid + distance(_anchor.xz, uTex.xy) / (uTex.w * 1.6) * .5' :
+                   'uRise.z + distance(_anchor.xz, uRise.xy) / uRise.w'} + hsh(_anchor.xz) * uRiseJ;
+        float du = 1.5 + _anchor.w / 110.;
+        float k = clamp((uT - st) / du, 0., 1.);
+        k = k < .5 ? 4. * k * k * k : 1. - pow(-2. * k + 2., 3.) / 2.;
+        vK = k;
+        transformed.y = _anchor.y + (transformed.y - _anchor.y) * max(k, 0.0005);
+        if (k < 0.003) transformed = vec3(_anchor.x, -20000., _anchor.z);   // not born yet: nothing drawn, no shadow
+        float ts = uTex.z + distance(_anchor.xz, uTex.xy) / uTex.w + hsh(_anchor.zx) * .7;
+        vTx = clamp((uT - ts) / 1.1, 0., 1.);
+        vTx = vTx * vTx * (3. - 2. * vTx);`;
+function buildingMat(textured, startUniform) {    // every building grows from its own base; LOD2 photo fades in from clay
+  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0 });
+  m.onBeforeCompile = s => {
+    Object.assign(s.uniforms, U);
+    s.vertexShader = GROW_HEAD + s.vertexShader.replace('#include <begin_vertex>', growBody(startUniform));
+    s.fragmentShader = 'varying float vK, vTx;\n' + s.fragmentShader
+      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n if (vK < 0.003) discard;')
+      .replace('#include <map_fragment>', textured
+        ? '#include <map_fragment>\n diffuseColor.rgb = mix(vec3(0.86, 0.855, 0.84), diffuseColor.rgb, vTx);'
+        : '#include <map_fragment>');
+  };
+  return m;
+}
+const DEPTH = {};                                   // shadow pass grows the same way, or hidden buildings cast full-height shadows
+for (const kind of ['rise', 'brid']) {
+  const d = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+  d.onBeforeCompile = s => { Object.assign(s.uniforms, U);
+    s.vertexShader = GROW_HEAD + s.vertexShader.replace('#include <begin_vertex>', growBody(kind)); };
+  d.customProgramCacheKey = () => 'growdepth-' + kind;
+  DEPTH[kind] = d;
+}
+const MAT = {
+  dem: revealMat(0xffffff, 'uTerr', 320),
+  tran: revealMat(0x666a71, 'uRoad', 180),
+  pads: revealMat(0xffffff, 'uTerr', 320),
+  bldg_lod1: buildingMat(false, 'rise'),
+  bldg_lod2: buildingMat(true, 'rise'),
+  brid: buildingMat(true, 'brid'),
+};
+MAT.tran.polygonOffset = true; MAT.tran.polygonOffsetFactor = -2; MAT.tran.polygonOffsetUnits = -4;
+MAT.bldg_lod1.color.set(0xdedcd6);
+
+// ---------------------------------------------------------------- load city
+const index = await (await fetch(ASSETS + 'index.json')).json();
+const loader = new GLTFLoader();
+const jobs = [];
+for (const [mesh, layers] of Object.entries(index)) for (const [layer, file] of Object.entries(layers)) jobs.push([mesh, layer, file]);
+const city = new THREE.Group(); scene.add(city);
+const lod2geo = [];
+let tris = 0;
+const lowC = new THREE.Color('#c3c0b8').convertSRGBToLinear(), highC = new THREE.Color('#e4e1d9').convertSRGBToLinear();
+async function work() {
+  while (jobs.length) {
+    const [mesh, layer, file] = jobs.shift();
+    const g = await loader.loadAsync(ASSETS + file);
+    g.scene.traverse(o => {
+      if (!o.isMesh) return;
+      const geo = o.geometry; tris += geo.index.count / 3;
+      let mat = MAT[layer];
+      if (geo.attributes.uv && o.material.map && (layer === 'bldg_lod2' || layer === 'brid')) {
+        mat = mat.clone(); mat.onBeforeCompile = MAT[layer].onBeforeCompile; mat.customProgramCacheKey = () => layer;
+        mat.map = o.material.map; mat.map.colorSpace = THREE.SRGBColorSpace; mat.map.anisotropy = 8;
+      }
+      if (layer === 'dem' || layer === 'pads') {                       // hypsometric tint: lowlands darker, Yamanote plateau lighter
+        const p = geo.attributes.position, c = new Float32Array(p.count * 3), tmp = new THREE.Color();
+        for (let i = 0; i < p.count; i++) { tmp.lerpColors(lowC, highC, clamp01((p.getY(i) - 2) / 36)); tmp.toArray(c, i * 3); }
+        geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+      }
+      o.material = mat;
+      if (layer === 'bldg_lod1' || layer === 'bldg_lod2') o.customDepthMaterial = DEPTH.rise;
+      if (layer === 'brid') o.customDepthMaterial = DEPTH.brid;
+      o.castShadow = layer !== 'dem' && layer !== 'tran' && layer !== 'pads'; o.receiveShadow = true;
+      o.frustumCulled = layer !== 'bldg_lod1' && layer !== 'bldg_lod2' && layer !== 'brid';   // grown geometry moves
+      if (layer === 'bldg_lod2') lod2geo.push(geo);
+    });
+    city.add(g.scene);
+  }
+}
+await Promise.all(Array.from({ length: 6 }, work));
+// 50 km ground under and around the city (film only): stops sky showing through the dataset edge and DEM cracks
+{ const g = await loader.loadAsync(ASSETS + '_ground.glb');
+  g.scene.traverse(o => { if (o.isMesh) { o.material = new THREE.MeshStandardMaterial({ color: 0xa29d92, roughness: 1, metalness: 0 });
+    o.receiveShadow = true; o.frustumCulled = false; } });
+  scene.add(g.scene); }
+
+// ---------------------------------------------------------------- selection meshes (exact building triangles)
+const selScene = new THREE.Scene();
+const white = new THREE.MeshBasicMaterial({ color: 0xffffff, depthFunc: THREE.LessEqualDepth, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
+for (const s of SEL) {
+  const [x, z] = LM[s.key]; let best = null;
+  for (const geo of lod2geo) {
+    const a = geo.attributes._anchor; if (!a) continue;
+    for (let i = 0; i < a.count; i++) {
+      const dx = a.getX(i) - x, dz = a.getZ(i) - z;
+      if (dx * dx + dz * dz < 90 * 90 && (!best || a.getW(i) > best.h)) best = { geo, ax: a.getX(i), az: a.getZ(i), base: a.getY(i), h: a.getW(i) };
+    }
+  }
+  if (!best) { console.warn('no building for', s.key); continue; }
+  const { geo } = best, a = geo.attributes._anchor, idx = geo.index.array, pos = geo.attributes.position;
+  const out = [];
+  for (let i = 0; i < idx.length; i += 3) {
+    const v = idx[i];
+    if (a.getX(v) === best.ax && a.getZ(v) === best.az) for (let k = 0; k < 3; k++) { const w = idx[i + k]; out.push(pos.getX(w), pos.getY(w), pos.getZ(w)); }
+  }
+  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
+  s.mesh = new THREE.Mesh(sg, white); s.mesh.visible = false; s.mesh.frustumCulled = false; selScene.add(s.mesh);
+  s.top = new THREE.Vector3(best.ax, best.base + best.h, best.az); s.h = best.h;
+  console.log('selection', s.key, 'height', best.h.toFixed(1), 'tris', out.length / 9);
+}
+const black = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+// ---------------------------------------------------------------- post: accumulate, outline, tone map
+const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+const qScene = new THREE.Scene(); qScene.add(quad);
+const accMat = new THREE.ShaderMaterial({ uniforms: { src: { value: null }, w: { value: 1 } }, transparent: true,
+  blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneFactor, depthTest: false, depthWrite: false,
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+  fragmentShader: 'uniform sampler2D src; uniform float w; varying vec2 vUv; void main(){ gl_FragColor = vec4(texture2D(src, vUv).rgb * w, w); }' });
+const outMat = new THREE.ShaderMaterial({
+  uniforms: { src: { value: rtAcc.texture }, mask: { value: rtMask.texture }, px: { value: new THREE.Vector2(1 / W, 1 / H) },
+              amt: { value: 0 }, col: { value: new THREE.Color('#ffc65c') }, exposure: { value: 1.0 } },
+  depthTest: false, depthWrite: false, toneMapped: false,
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+  fragmentShader: `uniform sampler2D src, mask; uniform vec2 px; uniform float amt, exposure; uniform vec3 col; varying vec2 vUv;
+    vec3 aces(vec3 x){ x *= exposure * 0.6; return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14), 0., 1.); }
+    vec3 srgb(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1./2.4)) - .055, step(.0031308, c)); }
+    void main(){
+      vec3 c = texture2D(src, vUv).rgb;
+      if (amt > 0.) {
+        float m = texture2D(mask, vUv).r, ring = 0.;
+        float r = 2.6 * (H_SCALE);
+        for (int i = 0; i < 16; i++) { float a = float(i) * 0.392699; ring = max(ring, texture2D(mask, vUv + vec2(cos(a), sin(a)) * px * r).r);
+                                       ring = max(ring, texture2D(mask, vUv + vec2(cos(a), sin(a)) * px * r * .5).r); }
+        float edge = clamp(ring - m, 0., 1.);
+        vec3 o = aces(c); o = mix(o, col, edge * amt);
+        gl_FragColor = vec4(srgb(o), 1.); return;
+      }
+      gl_FragColor = vec4(srgb(aces(c)), 1.);
+    }`.replace('H_SCALE', (H / 1080).toFixed(4)),
+});
+
+// ---------------------------------------------------------------- frame
+const tmp = new THREE.Vector3();
+function cameraAt(t) {
+  const s = shotAt(t); const u0 = clamp01((t - s.t0) / (s.t1 - s.t0));
+  const u = 0.75 * u0 + 0.25 * ease(u0);                     // already moving at the cut, gentle settle
+  s.cp.getPoint(u, camera.position); s.ct.getPoint(u, tmp);
+  const d = camera.position.distanceTo(tmp);                 // slight handheld drift, scaled to distance
+  const hx = Math.sin(t * 0.73) * 0.6 + Math.sin(t * 1.91 + 1) * 0.3, hy = Math.sin(t * 0.61 + 2) * 0.5 + Math.sin(t * 1.37) * 0.25;
+  camera.position.x += hx * d * 0.0018; camera.position.y += hy * d * 0.0012;
+  camera.fov = s.fov; camera.updateProjectionMatrix(); camera.lookAt(tmp);
+  scene.fog.near = s.fog[0]; scene.fog.far = s.fog[1];
+  sun.target.position.copy(tmp);
+  const ext = Math.min(Math.max(d * 0.9, 900), 9000);
+  sun.position.copy(tmp).addScaledVector(SUNDIR, 9000);
+  Object.assign(sun.shadow.camera, { left: -ext, right: ext, top: ext, bottom: -ext, near: 100, far: 20000 });
+  sun.shadow.camera.updateProjectionMatrix();
+  sky.position.copy(camera.position);
+  return s;
+}
+function overlays(t) {
+  const seen = new Set();
+  for (const [id, t0, t1, setup, noFadeIn] of OVER) {
+    if (t < t0 - 0.01 || t > t1 + 0.01) continue;
+    const el = document.getElementById(id); seen.add(id); if (setup) setup(el);
+    const fin = noFadeIn ? 1 : clamp01((t - t0) / 0.35), fout = clamp01((t1 - t) / 0.35);
+    el.style.opacity = Math.min(fin, fout);
+  }
+  for (const id of ['title', 'layer', 'ward', 'end']) if (!seen.has(id)) document.getElementById(id).style.opacity = 0;
+  const pin = document.getElementById('pin'); pin.style.opacity = 0;
+  for (const s of SEL) if (s.top && t >= s.t0 + 0.25 && t <= s.t1) {
+    const p = s.top.clone(); p.y += 12; p.project(camera);
+    pin.style.left = ((p.x + 1) / 2 * 100) + '%'; pin.style.top = ((1 - p.y) / 2 * 100 - 1.2) + '%';
+    pin.querySelector('.n').textContent = `${s.jp}  ${s.name}`;
+    pin.querySelector('.h').textContent = '';
+    pin.style.opacity = Math.min(clamp01((t - s.t0 - 0.25) / 0.4), clamp01((s.t1 - t) / 0.3));
+  }
+}
+let frameStats = {};
+window.renderAt = async (t) => {
+  renderer.setRenderTarget(rtAcc); renderer.setClearColor(0x000000, 0); renderer.clear();
+  for (let i = 0; i < SUB; i++) {
+    const s0 = shotAt(t);   // keep every subframe inside the current shot (no blending across cuts or before t=0)
+    const ts = SUB > 1 ? Math.min(Math.max(t + (i / SUB - 0.5) * SHUTTER / FPS, s0.t0), s0.t1 - 1e-4) : t;
+    const s = cameraAt(ts);
+    U.uT.value = s.state ?? ts;
+    renderer.setRenderTarget(rtMain); renderer.setClearColor(0x000000, 1); renderer.clear();
+    renderer.render(scene, camera);
+    accMat.uniforms.src.value = rtMain.texture; accMat.uniforms.w.value = 1 / SUB; quad.material = accMat;
+    renderer.setRenderTarget(rtAcc); renderer.render(qScene, quadCam);
+  }
+  const s = cameraAt(t); U.uT.value = s.state ?? t;
+  // selection border
+  let amt = 0;
+  for (const sel of SEL) { if (!sel.mesh) continue; const on = t >= sel.t0 && t <= sel.t1; sel.mesh.visible = on;
+    if (on) amt = Math.min(clamp01((t - sel.t0) / 0.45), clamp01((sel.t1 - t) / 0.3)); }
+  if (amt > 0) {
+    renderer.setRenderTarget(rtMask); renderer.setClearColor(0x000000, 1); renderer.clear();
+    scene.overrideMaterial = black; sky.visible = false; renderer.render(scene, camera); scene.overrideMaterial = null; sky.visible = true;
+    renderer.render(selScene, camera);
+  }
+  outMat.uniforms.amt.value = amt; quad.material = outMat;
+  renderer.setRenderTarget(null); renderer.setClearColor(0x000000, 1); renderer.clear(); renderer.render(qScene, quadCam);
+  overlays(t);
+  const gl = renderer.getContext(); const px = new Uint8Array(4); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  return { shot: SHOTS.indexOf(s), calls: renderer.info.render.calls };
+};
+window.__info = { tris, files: Object.values(index).reduce((a, l) => a + Object.keys(l).length, 0), sel: SEL.map(s => [s.key, s.h]) };
+renderer.compile(scene, camera);
+await window.renderAt(+(q.get('t') || 0));
+window.__ready = true;
+</script>
+</body>
+</html>

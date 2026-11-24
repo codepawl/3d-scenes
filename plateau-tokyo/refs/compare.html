@@ -1,0 +1,39 @@
+<!doctype html><html><head><meta charset="utf-8"><title>source OBJ</title>
+<style>html,body{margin:0;overflow:hidden;background:#dfe5ea}</style></head><body>
+<script type="importmap">{ "imports": { "three": "/plateau-tokyo-glb/viewer/lib/three/three.module.js" } }</script>
+<script type="module">
+// Renders the untouched source OBJ + MTL (all original textures) with the viewer's light and camera, for before/after stills.
+import * as THREE from 'three';
+import { OBJLoader } from './lib/OBJLoader.js';
+import { MTLLoader } from './lib/MTLLoader.js';
+const q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(innerWidth, innerHeight); renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); const sky = new THREE.Color('#dfe5ea'); scene.background = sky; scene.fog = new THREE.Fog(sky, 4000, 16000);
+scene.add(new THREE.HemisphereLight(0xf4f7fb, 0x8a8478, 1.5));
+const [x, y, z, tx, ty, tz, fov] = q.get('shot').split(',').map(Number);
+const sun = new THREE.DirectionalLight(0xfff3e2, 2.4); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -3000, right: 3000, top: 3000, bottom: -3000, near: 10, far: 8000 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 1.5;
+sun.target.position.set(tx, ty, tz); sun.position.set(tx - 1800, ty + 2600, tz + 1400); scene.add(sun, sun.target);
+const camera = new THREE.PerspectiveCamera(fov || 40, innerWidth / innerHeight, 5, 40000);
+camera.position.set(x, y, z); camera.lookAt(tx, ty, tz);
+const dir = q.get('dir');            // folder holding the OBJ + materials.mtl
+const mtl = await new MTLLoader().setPath(dir + '/').loadAsync('materials.mtl');
+mtl.preload();
+const obj = await new OBJLoader().setMaterials(mtl).loadAsync(dir + '/' + q.get('obj'));
+// EPSG:6677 (E, N, h) -> viewer frame (E-E0, h, -(N-N0))
+obj.matrixAutoUpdate = false;
+obj.matrix.set(1,0,0,10000, 0,0,1,0, 0,-1,0,-35500, 0,0,0,1);
+obj.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true;
+  const ms = Array.isArray(o.material) ? o.material : [o.material];
+  ms.forEach(m => { if (m.map) m.map.colorSpace = THREE.SRGBColorSpace; m.color?.set?.(m.map ? 0xffffff : 0xc7c7c2); m.specular?.set?.(0); m.shininess = 0; }); } });
+scene.add(obj);
+await new Promise(r => { const t = setInterval(() => { if (THREE.DefaultLoadingManager && document.readyState === 'complete') { clearInterval(t); r(); } }, 200); });
+await new Promise(r => setTimeout(r, 8000));   // let 1,715 textures finish loading
+renderer.render(scene, camera);
+window.__ready = true;
+</script></body></html>

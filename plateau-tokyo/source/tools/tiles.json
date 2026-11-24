@@ -1,0 +1,702 @@
+{
+"53393566": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53393567": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53393575": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53393576": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53393577": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53393585": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53393586": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53393587": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53393593": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53393594": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53393595": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53393596": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53393597": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394502": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394503": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394504": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394505": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394506": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394507": {
+"wards": [
+"Shibuya",
+"Shinjuku"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394509": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394512": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394513": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394514": {
+"wards": [
+"Shibuya",
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394515": {
+"wards": [
+"Shibuya",
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394516": {
+"wards": [
+"Shibuya",
+"Shinjuku"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394517": {
+"wards": [
+"Shibuya",
+"Shinjuku"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394518": {
+"wards": [
+"Chiyoda",
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394519": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394523": {
+"wards": [
+"Shibuya"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394524": {
+"wards": [
+"Shibuya",
+"Shinjuku"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394525": {
+"wards": [
+"Shibuya",
+"Shinjuku"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394526": {
+"wards": [
+"Shibuya",
+"Shinjuku"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394527": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394528": {
+"wards": [
+"Chiyoda",
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394529": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394534": {
+"wards": [
+"Shibuya",
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394535": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394536": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394537": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394538": {
+"wards": [
+"Chiyoda",
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394539": {
+"wards": [
+"Chiyoda",
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394544": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394545": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394546": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394547": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394548": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394549": {
+"wards": [
+"Chiyoda",
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394554": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394555": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394556": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394557": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394558": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394559": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394563": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394564": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394565": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394566": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394574": {
+"wards": [
+"Shinjuku"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394600": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394601": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394610": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394611": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394620": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394621": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394622": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"brid",
+"dem",
+"lod1",
+"lod2"
+]
+},
+"53394630": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394631": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394632": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394640": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394641": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"dem",
+"lod1"
+]
+},
+"53394642": {
+"wards": [
+"Chiyoda"
+],
+"layers": [
+"dem",
+"lod1"
+]
+}
+}

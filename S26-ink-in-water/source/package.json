@@ -1,0 +1,20 @@
+{
+  "name": "s26-ink-in-water",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --open",
+    "build": "vite build",
+    "preview": "vite preview",
+    "capture": "node capture.mjs"
+  },
+  "dependencies": {
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "playwright-core": "1.65.1",
+    "vite": "8.3.8"
+  }
+}
