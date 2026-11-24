@@ -57,13 +57,13 @@ Same layout as the shader studies.
 
 ## Scenes
 
-| Folder | Scene |
-|---|---|
-| [plateau-tokyo](plateau-tokyo) | Tokyo's 23 wards built layer by layer from the PLATEAU open city model, with the GLB pack |
-| [terrace-block](terrace-block) | Terrace block |
-| [roach-glow](roach-glow) | Roach glow |
-| [spider-opus](spider-opus) | Steam spider |
-| [creek-opus](creek-opus) | Aki's hollow |
+| Folder | Scene | Post |
+|---|---|---|
+| [plateau-tokyo](plateau-tokyo) | Tokyo's 23 wards built layer by layer from the PLATEAU open city model, with the GLB pack | |
+| [terrace-block](terrace-block) | Terrace block | [post](https://x.com/anxuanng/status/2114990039864336449) |
+| [roach-glow](roach-glow) | Roach glow | [post](https://x.com/anxuanng/status/2115857107916673147) |
+| [spider-opus](spider-opus) | Steam spider | [post](https://x.com/anxuanng/status/2110713337407574314) |
+| [creek-opus](creek-opus) | Aki's hollow | [post](https://x.com/anxuanng/status/2109175863761859011) [2](https://x.com/anxuanng/status/2110357629159854196) |
 
 ## Licence
 
